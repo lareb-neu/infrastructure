@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: This template creates vpc and subnets for it
+
+
+Parameters:
+  VpcCidrBlock:
+    Description: "CIDR block for VPC"
+    Type: String
+    Default: "10.0.0.0/16"
+
+  subnet01:
+    Description: "IP address for public subnet 1"
+    Type: String
+    Default: "10.0.0.0/24"
+
+  subnet02:
+    Description: "IP address for public subnet 1"
+    Type: String
+    Default: "10.0.1.0/24"
+
+  subnet03:
+    Description: "IP address for public subnet 1"
+    Type: String
+    Default: "10.0.2.0/24"
+
+
+Resources:
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: Test VPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+   
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Test IGW
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+  
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref myVPC
+
+  mySubnet01:
+    Type: AWS::EC2::Subnet
+    
+    Properties:
+      AvailabilityZone: !Select [0,!GetAZs '']
+      CidrBlock: !Ref subnet01
+      MapPublicIpOnLaunch: true
+      
+      Tags:
+        - Key: Name
+          Value: Public Subnet 1
+      VpcId: !Ref myVPC
+    
+  mySubnet02:
+    Type: AWS::EC2::Subnet
+    
+    Properties:
+      AvailabilityZone: !Select [1 ,!GetAZs '']
+      CidrBlock: !Ref subnet02
+      MapPublicIpOnLaunch: true
+      
+      Tags:
+        - Key: Name
+          Value: Public Subnet 2
+      VpcId: !Ref myVPC
+  
+  mySubnet03:
+    Type: AWS::EC2::Subnet
+    
+    Properties:
+      AvailabilityZone: !Select [2 ,!GetAZs '']
+      CidrBlock: !Ref subnet03
+      MapPublicIpOnLaunch: true
+      
+      Tags:
+        - Key: Name
+          Value: Public Subnet 3
+      VpcId: !Ref myVPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    
+    Properties:
+      Tags:
+        - Key: Name 
+          Value: Public Route Table
+      VpcId: !Ref myVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref mySubnet01
+  
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref mySubnet02
+
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref mySubnet03
+
