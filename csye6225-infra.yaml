@@ -24,6 +24,23 @@ Parameters:
     Type: String
     Default: "10.0.2.0/24"
 
+  RootVolumeType:
+    Description: EBS volume type
+    Type: String
+    Default: gp2
+  RootVolumeSize:
+    Description: EBS volume size
+    Type: Number
+    Default: 50
+  instanceType:
+    Description: EC2 Instance type
+    Type: String
+    Default: t2.micro
+  imageId: 
+    Description: EC2 Instance ID
+    Type: String
+    #Default: ami-033b95fb8079dc481
+
 
 Resources:
   myVPC:
@@ -128,4 +145,47 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref mySubnet03
+
+
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: applicationSecurityGroup
+      GroupDescription: EC2 Security Group
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '2000'
+          ToPort: '2000'
+          CidrIp: 0.0.0.0/0
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sdm  
+          Ebs:
+            VolumeSize: !Ref RootVolumeSize
+            VolumeType: !Ref RootVolumeType
+            DeleteOnTermination: true
+      InstanceType: !Ref instanceType
+      ImageId: !Ref imageId
+      SecurityGroupIds:
+        - !Ref ApplicationSecurityGroup
+      SubnetId: !Ref mySubnet01
+      Tags:
+        - Key: EC2
+          Value: ApplicationServer
 
