@@ -19,3 +19,7 @@ Deleting a stack:
 
 aws cloudformation delete-stack --stack-name myvpc --profile demo_adminuser  --region us-east-1
 
+-------
+
+Creating Instance from yaml: 
+aws --profile=dev_adminuser cloudformation create-stack --stack-name myVpc --parameters ParameterKey=imageId,ParameterValue=ami-03c449a18b87a704d --template-body file://csye6225-infra.yaml --region us-east-1
