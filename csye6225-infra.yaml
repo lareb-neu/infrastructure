@@ -24,22 +24,23 @@ Parameters:
     Type: String
     Default: "10.0.2.0/24"
 
-  RootVolumeType:
-    Description: EBS volume type
+  EBSRootVolumeType:
+    Description: Volume type for EBS
     Type: String
     Default: gp2
-  RootVolumeSize:
-    Description: EBS volume size
+  EBSRootVolumeSize:
+    Description: Volume size for EBS
     Type: Number
     Default: 50
-  instanceType:
-    Description: EC2 Instance type
+  EBSinstanceType:
+    Description: Instance type for EBS
     Type: String
     Default: t2.micro
-  imageId: 
-    Description: EC2 Instance ID
+  amiId: 
+    Description: ID for the ami built
     Type: String
-    #Default: ami-033b95fb8079dc481
+    
+    
 
 
 Resources:
@@ -147,7 +148,7 @@ Resources:
       SubnetId: !Ref mySubnet03
 
 
-  ApplicationSecurityGroup:
+  AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: applicationSecurityGroup
@@ -171,19 +172,19 @@ Resources:
           ToPort: '2000'
           CidrIp: 0.0.0.0/0
 
-  EC2Instance:
+  InstanceOfBuiltAMI:
     Type: AWS::EC2::Instance
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sdm  
           Ebs:
-            VolumeSize: !Ref RootVolumeSize
-            VolumeType: !Ref RootVolumeType
+            VolumeSize: !Ref EBSRootVolumeSize
+            VolumeType: !Ref EBSRootVolumeType
             DeleteOnTermination: true
-      InstanceType: !Ref instanceType
-      ImageId: !Ref imageId
+      InstanceType: !Ref EBSinstanceType
+      ImageId: !Ref amiId
       SecurityGroupIds:
-        - !Ref ApplicationSecurityGroup
+        - !Ref AppSecurityGroup
       SubnetId: !Ref mySubnet01
       Tags:
         - Key: EC2
