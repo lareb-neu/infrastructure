@@ -39,7 +39,43 @@ Parameters:
   amiId: 
     Description: ID for the ami built
     Type: String
-    
+
+  PrivateSubnet01:
+    Description: IP address for private subnet 01
+    Type: String
+    Default: 10.0.3.0/24
+  PrivateSubnet02:
+    Description: IP address for private subnet 02
+    Type: String
+    Default: 10.0.4.0/24
+  PrivateSubnet03:
+    Description: IP address for private subnet 03
+    Type: String
+    Default: 10.0.5.0/24
+  SshKeyPairName:
+    Description: The SSH key name required for login using SSH
+    Type: String
+    Default: aws-02
+  s3Bucket:
+    Description: S3 Bucket Name
+    Type: String
+    Default: csye6225larebkhans3
+  DbName:
+    Description: Database Instance Name
+    Type: String
+    Default: csye6225 
+  DbUsername:
+    Description: Database Instance UserName
+    Type: String
+    Default: csye6225
+  DbPassword:
+    Description: Database Instance Password
+    Type: String
+    Default: lareb1996
+  EnvironmentName:
+    Description: Name given for the environment here its dev
+    Type: String
+    Default: dev  
     
 
 
@@ -109,6 +145,43 @@ Resources:
           Value: Public Subnet 3
       VpcId: !Ref myVPC
 
+  myPrivateSubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet01
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 01
+
+  myPrivateSubnet02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet02
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 02
+
+  myPrivateSubnet03:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet03
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 03
+
+
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     
@@ -125,6 +198,14 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
       RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable
 
   PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -147,6 +228,32 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref mySubnet03
 
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref myPrivateSubnet01
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref myPrivateSubnet02
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref myPrivateSubnet03
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet Group for RDS instances
+      SubnetIds:
+        - !Ref myPrivateSubnet01
+        - !Ref myPrivateSubnet02
+        - !Ref myPrivateSubnet03
 
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -172,6 +279,67 @@ Resources:
           ToPort: '2000'
           CidrIp: 0.0.0.0/0
 
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: database
+      GroupDescription: EC2 security group for RDS instances
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: !Ref AppSecurityGroup
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+
+  
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join ['', [!Ref s3Bucket,'-',!Ref EnvironmentName]]
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+      LifecycleConfiguration:
+        Rules:
+          - Id: LifeCycleRule
+            Status: Enabled
+            ExpirationInDays: 60
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+            
+
+  AmazonRDSParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: RDS parameter Group
+      Family: postgres13
+      Tags: 
+        - Key: RDS-ParameterGroup
+          Value: Postgres-ParameterGroup
+
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      Engine: postgres
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      MultiAZ: false
+      DBInstanceIdentifier: !Ref DbName
+      MasterUsername: !Ref DbUsername
+      MasterUserPassword: !Ref DbPassword
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      PubliclyAccessible: false
+      DBName: !Ref DbName
+      DBParameterGroupName: !Ref AmazonRDSParameterGroup
+      VPCSecurityGroups:
+        - !Ref DbSecurityGroup
+
   InstanceOfBuiltAMI:
     Type: AWS::EC2::Instance
     Properties:
@@ -183,10 +351,71 @@ Resources:
             DeleteOnTermination: true
       InstanceType: !Ref EBSinstanceType
       ImageId: !Ref amiId
+      KeyName: !Ref SshKeyPairName
+      IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
         - !Ref AppSecurityGroup
       SubnetId: !Ref mySubnet01
       Tags:
         - Key: EC2
           Value: ApplicationServer
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt-get update
+          cd /home/ubuntu/webapp_local
+          touch db_creds.py
+          echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/webapp_local/db_creds.py
+          echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/webapp_local/db_creds.py
+          echo "db_name='${DbName}'" >> /home/ubuntu/webapp_local/db_creds.py
+          echo "username='${DbUsername}'" >> /home/ubuntu/webapp_local/db_creds.py
+          echo "password='${DbPassword}'" >> /home/ubuntu/webapp_local/db_creds.py
+          sudo systemctl daemon-reload
+          sudo systemctl start gunicorn
+          sudo systemctl enable gunicorn
+          sudo systemctl start nginx
+          sudo systemctl enable nginx
 
+  WebappS3IamPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: WebAppS3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:DeleteObject'
+            Resource: 
+              - !Join ['', [!GetAtt 'S3Bucket.Arn']]
+              - !Join ['', [!GetAtt 'S3Bucket.Arn','/*' ]]
+      Roles:
+      - !Ref WebappS3IamRole
+
+  WebappS3IamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EC2-CSYE6225
+      Description: IAM Role for WebApp and S3 bucket
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      
+
+
+  EC2InstanceProfile: 
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      InstanceProfileName: EC2InstanceProfile
+      Roles:
+      - !Ref WebappS3IamRole
+
+  
