@@ -363,14 +363,14 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           sudo apt-get update
-          cd /home/ubuntu/webapp_local
+          cd /home/ubuntu/
           touch db_creds.py
-          echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/webapp_local/db_creds.py
-          echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/webapp_local/db_creds.py
-          echo "db_name='${DbName}'" >> /home/ubuntu/webapp_local/db_creds.py
-          echo "username='${DbUsername}'" >> /home/ubuntu/webapp_local/db_creds.py
-          echo "password='${DbPassword}'" >> /home/ubuntu/webapp_local/db_creds.py
-          echo "s3bucketname='${s3Bucket}-${EnvironmentName}}'" >> /home/ubuntu/webapp_local/db_creds.py
+          echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/db_creds.py
+          echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/db_creds.py
+          echo "db_name='${DbName}'" >> /home/ubuntu/db_creds.py
+          echo "username='${DbUsername}'" >> /home/ubuntu/db_creds.py
+          echo "password='${DbPassword}'" >> /home/ubuntu/db_creds.py
+          echo "s3bucketname='${s3Bucket}-${EnvironmentName}}'" >> /home/ubuntu/db_creds.py
           sudo systemctl daemon-reload
           sudo systemctl start gunicorn
           sudo systemctl enable gunicorn
