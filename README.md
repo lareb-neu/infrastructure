@@ -26,3 +26,6 @@ aws --profile=dev_adminuser cloudformation create-stack --stack-name myVpc --par
 
 assignmnet -5
 aws cloudformation create-stack --parameters ParameterKey=amiId,ParameterValue=ami-03da85911a66124a8 --template-body file://csye6225-infra.yaml --region us-east-1 --capabilities CAPABILITY_NAMED_IAM --stack-name myVpcnewer
+
+
+aws cloudformation create-stack --parameters ParameterKey=amiId,ParameterValue=ami-0ee0afc95aeb6caa9 ParameterKey=EnvironmentName,ParameterValue=demo ParameterKey=SshKeyPairName,ParameterValue=aws-demo --template-body file://csye6225-infra.yaml --region us-east-1 --capabilities CAPABILITY_NAMED_IAM --stack-name myVpcDemo

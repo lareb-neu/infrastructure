@@ -76,7 +76,11 @@ Parameters:
     Description: Name given for the environment here its dev
     Type: String
     Default: dev  
-    
+
+  DNSDomain:
+    Description: Domain name for EC2
+    Type: String
+    Default: larebkhan.me.
 
 
 Resources:
@@ -389,6 +393,8 @@ Resources:
               - 's3:PutObject'
               - 's3:GetObject'
               - 's3:DeleteObject'
+              - 's3:PutObjectAcl'
+              - 's3:PutObjectTagging'
             Resource: 
               - !Join ['', [!GetAtt 'S3Bucket.Arn']]
               - !Join ['', [!GetAtt 'S3Bucket.Arn','/*' ]]
@@ -419,4 +425,16 @@ Resources:
       Roles:
       - !Ref WebappS3IamRole
 
-  
+
+  myDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      #HostedZoneName: dev.larebkhan.me
+      HostedZoneName: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
+      Name: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
+      Type: A
+      TTL: '60'
+      ResourceRecords:
+      - !GetAtt 'InstanceOfBuiltAMI.PublicIp'
+
+   
