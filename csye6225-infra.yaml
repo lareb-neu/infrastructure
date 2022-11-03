@@ -300,7 +300,7 @@ Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Join ['', [!Ref s3Bucket,'-',!Ref EnvironmentName]]
+      BucketName: !Join ['', [!Ref s3Bucket,'-',!Ref EnvironmentName,!Ref AWS::StackName ]]
       AccessControl: Private
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -374,7 +374,7 @@ Resources:
           echo "db_name='${DbName}'" >> /home/ubuntu/db_creds.py
           echo "username='${DbUsername}'" >> /home/ubuntu/db_creds.py
           echo "password='${DbPassword}'" >> /home/ubuntu/db_creds.py
-          echo "s3bucketname='${s3Bucket}-${EnvironmentName}'" >> /home/ubuntu/db_creds.py
+          echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/db_creds.py
           sudo systemctl daemon-reload
           sudo systemctl start gunicorn
           sudo systemctl enable gunicorn
