@@ -367,14 +367,19 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           sudo apt-get update
-          cd /home/ubuntu/
+          cd /home/ubuntu/webapp
           touch db_creds.py
-          echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/db_creds.py
-          echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/db_creds.py
-          echo "db_name='${DbName}'" >> /home/ubuntu/db_creds.py
-          echo "username='${DbUsername}'" >> /home/ubuntu/db_creds.py
-          echo "password='${DbPassword}'" >> /home/ubuntu/db_creds.py
-          echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/db_creds.py
+          echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "db_name='${DbName}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "username='${DbUsername}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "password='${DbPassword}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/webapp/db_creds.py
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+              -a fetch-config \
+              -m ec2 \
+              -c file:/home/ubuntu/webapp/cloudwatch-config.json \
+              -s
           sudo systemctl daemon-reload
           sudo systemctl start gunicorn
           sudo systemctl enable gunicorn
@@ -437,4 +442,28 @@ Resources:
       ResourceRecords:
       - !GetAtt 'InstanceOfBuiltAMI.PublicIp'
 
-   
+
+  CloudWatchAgentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "EC2CloudWatchPolicy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudwatch:PutMetricData'
+              - 'ec2:DescribeTags'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+              - 'logs:DescribeLogGroups'
+              - 'logs:CreateLogStream'
+              - 'logs:CreateLogGroup'
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - 'ssm:GetParameter'
+              - 'ssm:PutParameter'
+            Resource: "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
+      Roles:
+        - Ref: WebappS3IamRole
