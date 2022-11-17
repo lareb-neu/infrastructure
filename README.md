@@ -28,4 +28,4 @@ assignmnet -5
 aws cloudformation create-stack --parameters ParameterKey=amiId,ParameterValue=ami-03da85911a66124a8 --template-body file://csye6225-infra.yaml --region us-east-1 --capabilities CAPABILITY_NAMED_IAM --stack-name myVpcnewer
 
 
-aws cloudformation create-stack --parameters ParameterKey=amiId,ParameterValue=ami-092e6d5dff28ef7f0 ParameterKey=EnvironmentName,ParameterValue=demo ParameterKey=SshKeyPairName,ParameterValue=aws-demo --template-body file://csye6225-infra.yaml --region us-east-1 --capabilities CAPABILITY_NAMED_IAM --stack-name vpcdemo
+aws cloudformation create-stack --parameters ParameterKey=amiId,ParameterValue=ami-0d75f249646be032e ParameterKey=EnvironmentName,ParameterValue=demo ParameterKey=SshKeyPairName,ParameterValue=aws-demo --template-body file://csye6225-infra.yaml --region us-east-1 --capabilities CAPABILITY_NAMED_IAM --stack-name vpcdemolambda
