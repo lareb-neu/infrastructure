@@ -82,6 +82,16 @@ Parameters:
     Type: String
     Default: larebkhan.me.
 
+  SNSTopicName:
+    Description: Name of SNS Topic
+    Type: String
+    Default: user_verification
+  
+  TTL:
+    Description: Time to Live
+    Type: String
+    Default: 5
+
 
 Resources:
   myVPC:
@@ -375,6 +385,9 @@ Resources:
           echo "username='${DbUsername}'" >> /home/ubuntu/webapp/db_creds.py
           echo "password='${DbPassword}'" >> /home/ubuntu/webapp/db_creds.py
           echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "aws_region='${AWS::Region}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "topic_arn='arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}'" >> /home/ubuntu/webapp/db_creds.py
+          echo "TimeToLive='${TTL}'" >> /home/ubuntu/webapp/db_creds.py
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
               -a fetch-config \
               -m ec2 \
@@ -469,3 +482,208 @@ Resources:
             Resource: "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
       Roles:
         - Ref: WebappS3IamRole
+
+
+  SNSservice:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Ref SNSTopicName
+      Subscription:
+        - Endpoint: !GetAtt LambdaFunction.Arn
+          Protocol: lambda
+      TopicName: !Ref SNSTopicName
+
+  SNStopicpolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2008-10-17'
+        Id: __default_policy_ID
+        Statement:
+        - Sid: __default_statement_ID
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - SNS:Publish
+          - SNS:DeleteTopic
+          - SNS:ListSubscriptionsByTopic
+          - SNS:GetTopicAttributes
+          - SNS:Receive
+          - SNS:AddPermission
+          - SNS:Subscribe
+          Resource:
+            Ref: SNSservice
+          Condition:
+            StringEquals:
+              AWS:SourceOwner: !Ref AWS::AccountId
+        - Sid: __console_pub_0
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action: SNS:Publish
+          Resource:
+            Ref: SNSservice
+        - Sid: __console_sub_0
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - SNS:Subscribe
+          - SNS:Receive
+          Resource:
+            Ref: SNSservice
+      Topics:
+      - Ref: SNSservice
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn:
+        Ref: SNSservice
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: verifyEmail
+      Role:
+        Fn::Join:
+        - ''
+        - - 'arn:aws:iam::'
+          - !Ref AWS::AccountId
+          - ":role/"
+          - !Ref LambdaRole
+      Runtime: python3.7
+      Handler: index.handler
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return True
+      Description: Function to store token in dynamodb and send email to SNS
+
+  myLambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: Lambda-SES-SNS-DynamoDBpolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+            Resource:
+              - !GetAtt DynamodbTable.Arn
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource:
+              - "arn:aws:ses:us-east-1:620068443483:identity/*"
+          - Effect: Allow
+            Action:
+              - sns:ConfirmSubscription
+            Resource:
+              - !Ref SNSservice
+
+      Roles:
+        - !Ref LambdaRole
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "LambdaFunctionRole"
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess 
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  DynamodbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: "Email"
+          AttributeType: "S"
+        - 
+          AttributeName: "TokenName"
+          AttributeType: "S"
+      KeySchema:
+        - 
+          AttributeName: "Email"
+          KeyType: "HASH"
+        - 
+          AttributeName: "TokenName"
+          KeyType: "RANGE"
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: csye-6225
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true
+      Tags:
+        - Key: key
+          Value: value
+
+  myEmailTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: sent-emails
+      AttributeDefinitions:
+        - 
+          AttributeName: emailadd
+          AttributeType: S
+      KeySchema:
+        - 
+          AttributeName: emailadd
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  DynamoDBPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DynamoPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'dynamodb:List*'
+              - 'dynamodb:DescribeReservedCapacity*'
+              - 'dynamodb:DescribeLimits'
+              - 'dynamodb:DescribeTimeToLive'
+            Resource: 
+              - '*'
+          - Effect: Allow
+            Action:
+              - 'dynamodb:PutItem'
+              - 'dynamodb:DescribeTable'
+              - 'dynamodb:Get*'
+              - 'dynamodb:Query'
+              - 'dynamodb:Scan'
+              - 'dynamodb:Delete*'
+              - 'dynamodb:CreateTable'
+              - 'dynamodb:Update*'
+              - 'dynamodb:BatchWrite*'
+              - 'dynamodb:DescribeStream'
+              - 'dynamodb:BatchGet*'
+            Resource:
+              - !GetAtt DynamodbTable.Arn
+      Roles:
+        - !Ref WebappS3IamRole
