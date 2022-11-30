@@ -92,6 +92,10 @@ Parameters:
     Type: String
     Default: 5
 
+  LoadBalancerSG:
+    Description: "Load balancer Security Group parameter tag"
+    Type: String
+    Default: "load balancer"
 
 Resources:
   myVPC:
@@ -276,22 +280,25 @@ Resources:
       GroupDescription: EC2 Security Group
       VpcId: !Ref myVPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: '80'
-          ToPort: '80'
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
+        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          IpProtocol: tcp
           FromPort: '22'
           ToPort: '22'
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: '443'
-          ToPort: '443'
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: '2000'
-          ToPort: '2000'
-          CidrIp: 0.0.0.0/0
+          
+        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+
+        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          IpProtocol: tcp
+          FromPort: '8000'
+          ToPort: '8000'
+
+        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          IpProtocol: tcp
+          FromPort: '5000'
+          ToPort: '5000'
 
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -354,52 +361,52 @@ Resources:
       VPCSecurityGroups:
         - !Ref DbSecurityGroup
 
-  InstanceOfBuiltAMI:
-    Type: AWS::EC2::Instance
-    Properties:
-      BlockDeviceMappings:
-        - DeviceName: /dev/sdm  
-          Ebs:
-            VolumeSize: !Ref EBSRootVolumeSize
-            VolumeType: !Ref EBSRootVolumeType
-            DeleteOnTermination: true
-      InstanceType: !Ref EBSinstanceType
-      ImageId: !Ref amiId
-      KeyName: !Ref SshKeyPairName
-      IamInstanceProfile: !Ref EC2InstanceProfile
-      SecurityGroupIds:
-        - !Ref AppSecurityGroup
-      SubnetId: !Ref mySubnet01
-      Tags:
-        - Key: EC2
-          Value: ApplicationServer
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          sudo apt-get update
-          cd /home/ubuntu/webapp
-          touch db_creds.py
-          echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "db_name='${DbName}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "username='${DbUsername}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "password='${DbPassword}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "aws_region='${AWS::Region}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "topic_arn='arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}'" >> /home/ubuntu/webapp/db_creds.py
-          echo "TimeToLive='${TTL}'" >> /home/ubuntu/webapp/db_creds.py
-          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-              -a fetch-config \
-              -m ec2 \
-              -c file:/home/ubuntu/webapp/cloudwatch-config.json \
-              -s
-          sudo systemctl daemon-reload
-          sudo systemctl start gunicorn
-          sudo systemctl enable gunicorn
-          sudo systemctl start nginx
-          sudo systemctl enable nginx
-          sudo service start amazon-cloudwatch-agent 
-          sudo systemctl enable amazon-cloudwatch-agent.service
+  # InstanceOfBuiltAMI:
+  #   Type: AWS::EC2::Instance
+  #   Properties:
+  #     BlockDeviceMappings:
+  #       - DeviceName: /dev/sdm  
+  #         Ebs:
+  #           VolumeSize: !Ref EBSRootVolumeSize
+  #           VolumeType: !Ref EBSRootVolumeType
+  #           DeleteOnTermination: true
+  #     InstanceType: !Ref EBSinstanceType
+  #     ImageId: !Ref amiId
+  #     KeyName: !Ref SshKeyPairName
+  #     IamInstanceProfile: !Ref EC2InstanceProfile
+  #     SecurityGroupIds:
+  #       - !Ref AppSecurityGroup
+  #     SubnetId: !Ref mySubnet01
+  #     Tags:
+  #       - Key: EC2
+  #         Value: ApplicationServer
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         sudo apt-get update
+  #         cd /home/ubuntu/webapp
+  #         touch db_creds.py
+  #         echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "db_name='${DbName}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "username='${DbUsername}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "password='${DbPassword}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "aws_region='${AWS::Region}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "topic_arn='arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}'" >> /home/ubuntu/webapp/db_creds.py
+  #         echo "TimeToLive='${TTL}'" >> /home/ubuntu/webapp/db_creds.py
+  #         sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  #             -a fetch-config \
+  #             -m ec2 \
+  #             -c file:/home/ubuntu/webapp/cloudwatch-config.json \
+  #             -s
+  #         sudo systemctl daemon-reload
+  #         sudo systemctl start gunicorn
+  #         sudo systemctl enable gunicorn
+  #         sudo systemctl start nginx
+  #         sudo systemctl enable nginx
+  #         sudo service start amazon-cloudwatch-agent 
+  #         sudo systemctl enable amazon-cloudwatch-agent.service
 
   WebappS3IamPolicy:
     Type: AWS::IAM::Policy
@@ -435,6 +442,7 @@ Resources:
                 - ec2.amazonaws.com
             Action:
               - 'sts:AssumeRole'
+              - 'sts:TagSession'
       
 
 
@@ -446,17 +454,27 @@ Resources:
       - !Ref WebappS3IamRole
 
 
+  # myDNSRecord:
+  #   Type: AWS::Route53::RecordSet
+  #   Properties:
+  #     #HostedZoneName: dev.larebkhan.me
+  #     HostedZoneName: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
+  #     Name: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
+  #     Type: A
+  #     TTL: '60'
+  #     ResourceRecords:
+  #     - !GetAtt 'InstanceOfBuiltAMI.PublicIp'
+  
   myDNSRecord:
-    Type: AWS::Route53::RecordSet
+    Type: AWS::Route53::RecordSetGroup
     Properties:
-      #HostedZoneName: dev.larebkhan.me
       HostedZoneName: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
-      Name: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
-      Type: A
-      TTL: '60'
-      ResourceRecords:
-      - !GetAtt 'InstanceOfBuiltAMI.PublicIp'
-
+      RecordSets:
+      - Name: !Join ['', [!Ref EnvironmentName,'.',!Ref DNSDomain]]
+        Type: A
+        AliasTarget:
+            HostedZoneId: !GetAtt 'LoadBalancer.CanonicalHostedZoneID'
+            DNSName: !GetAtt 'LoadBalancer.DNSName'
 
   CloudWatchAgentPolicy:
     Type: AWS::IAM::Policy
@@ -605,6 +623,7 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - 'sts:AssumeRole'
+              - 'sts:TagSession'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSESFullAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
@@ -687,3 +706,201 @@ Resources:
               - !GetAtt DynamodbTable.Arn
       Roles:
         - !Ref WebappS3IamRole
+
+    
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Security group for load balancer
+        GroupName: load balancer
+        VpcId: !Ref myVPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  
+  ASGLaunchConfig:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt
+            - EC2InstanceProfile
+            - Arn
+        BlockDeviceMappings:
+          - DeviceName: /dev/sdm  
+            Ebs:
+              VolumeSize: !Ref EBSRootVolumeSize
+              VolumeType: !Ref EBSRootVolumeType
+              DeleteOnTermination: true
+        InstanceType: !Ref EBSinstanceType
+        ImageId: !Ref amiId
+        KeyName: !Ref SshKeyPairName
+        SecurityGroupIds:
+          - !Ref AppSecurityGroup
+        
+       
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            sudo apt-get update
+            cd /home/ubuntu/webapp
+            touch db_creds.py
+            echo "host='${RDSInstance.Endpoint.Address}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "port='${RDSInstance.Endpoint.Port}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "db_name='${DbName}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "username='${DbUsername}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "password='${DbPassword}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "s3bucketname='${s3Bucket}-${EnvironmentName}${AWS::StackName}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "aws_region='${AWS::Region}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "topic_arn='arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}'" >> /home/ubuntu/webapp/db_creds.py
+            echo "TimeToLive='${TTL}'" >> /home/ubuntu/webapp/db_creds.py
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+                -a fetch-config \
+                -m ec2 \
+                -c file:/home/ubuntu/webapp/cloudwatch-config.json \
+                -s
+            sudo systemctl daemon-reload
+            sudo systemctl start gunicorn
+            sudo systemctl enable gunicorn
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            sudo service start amazon-cloudwatch-agent 
+            sudo systemctl enable amazon-cloudwatch-agent.service
+
+  
+  ASGWebapp:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${AWS::StackName}-asg
+      Cooldown: '60'
+      DesiredCapacity: '1'
+      HealthCheckGracePeriod: 300
+      HealthCheckType: EC2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ASGLaunchConfig
+        Version: !GetAtt ASGLaunchConfig.LatestVersionNumber
+      
+      MaxSize: '3'
+      MinSize: '1'
+      #NewInstancesProtectedFromScaleIn: true
+      Tags:
+        - Key: Application
+          Value: WebApp
+          PropagateAtLaunch: "true"
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-asg
+          PropagateAtLaunch: "true"
+      TargetGroupARNs:
+        - !Ref LoadBalancerTargetGroup
+      VPCZoneIdentifier:
+        - !Ref mySubnet01
+        - !Ref mySubnet02
+        - !Ref mySubnet03
+  
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-up if CPU grater than 5%
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: '60'
+      EvaluationPeriods: 1
+      Threshold: 5.0
+      AlarmActions:
+      - Ref: ScaleUpPolicy
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref ASGWebapp
+      ComparisonOperator: GreaterThanThreshold
+
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-down if CPU is less than 3%
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: '60'
+      EvaluationPeriods: 1
+      Threshold: 3.0
+      AlarmActions:
+      - Ref: ScaleDownPolicy
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref ASGWebapp
+      ComparisonOperator: LessThanThreshold
+    
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ASGWebapp
+      Cooldown: 60
+      ScalingAdjustment: 1
+
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ASGWebapp
+      Cooldown: 60
+      ScalingAdjustment: -1
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      Name: !Sub ${AWS::StackName}-load-balancer
+      Scheme: internet-facing
+      SecurityGroups: 
+        - !Ref LoadBalancerSecurityGroup
+      Subnets:
+        - !Ref mySubnet01
+        - !Ref mySubnet02
+        - !Ref mySubnet03
+      Tags:
+        - Key: Application
+          Value: WebApp
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-load-balancer
+      Type: application
+  
+  LoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: '/healthz'
+      HealthCheckPort: '80'
+      HealthCheckProtocol: 'HTTP'
+      HealthyThresholdCount: 3
+      IpAddressType: ipv4
+      Name: !Sub ${AWS::StackName}-lb-tg
+      Port: 80
+      Protocol: 'HTTP'
+      TargetType: instance
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref myVPC
+  
+  loadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref LoadBalancerTargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: arn:aws:acm:us-east-1:620068443483:certificate/d0a9b531-3018-4050-a13a-b016b8e2a296
