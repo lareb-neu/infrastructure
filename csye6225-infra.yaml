@@ -290,15 +290,6 @@ Resources:
           FromPort: '80'
           ToPort: '80'
 
-        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
-          IpProtocol: tcp
-          FromPort: '8000'
-          ToPort: '8000'
-
-        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
-          IpProtocol: tcp
-          FromPort: '5000'
-          ToPort: '5000'
 
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -360,6 +351,8 @@ Resources:
       DBParameterGroupName: !Ref AmazonRDSParameterGroup
       VPCSecurityGroups:
         - !Ref DbSecurityGroup
+      StorageEncrypted: true
+      KmsKeyId: !GetAtt RDSKey.Arn
 
   # InstanceOfBuiltAMI:
   #   Type: AWS::EC2::Instance
@@ -739,11 +732,14 @@ Resources:
               VolumeSize: !Ref EBSRootVolumeSize
               VolumeType: !Ref EBSRootVolumeType
               DeleteOnTermination: true
+              Encrypted: true
+              KmsKeyId: !GetAtt EBSkey.Arn
         InstanceType: !Ref EBSinstanceType
         ImageId: !Ref amiId
         KeyName: !Ref SshKeyPairName
         SecurityGroupIds:
           - !Ref AppSecurityGroup
+        
         
        
         UserData:
@@ -904,3 +900,65 @@ Resources:
       Protocol: HTTPS
       Certificates:
         - CertificateArn: arn:aws:acm:us-east-1:620068443483:certificate/d0a9b531-3018-4050-a13a-b016b8e2a296
+
+  EBSkey:
+
+    Type: AWS::KMS::Key
+
+    Properties:
+
+      Description: A symmetric key for encryption of EBS
+
+      KeyPolicy:
+
+        Id: key-default-ebs
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Sid: Enabling Key to the resource
+
+            Effect: Allow
+
+            Principal:
+
+              AWS:
+
+                - !Join ["",["arn:aws:iam::",!Ref "AWS::AccountId",":role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",],]
+
+                - !Join ["",["arn:aws:iam::",!Ref "AWS::AccountId",":root"],]
+
+            Action: 'kms:*'
+
+            Resource: '*'
+
+  RDSKey:
+
+    Type: AWS::KMS::Key
+
+    Properties:
+
+      Description: A symmetric key for encryption of RDS
+
+      KeyPolicy:
+
+        Id: key-default-rds
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Sid: Enabling Key to the resource
+
+            Effect: Allow
+
+            Principal:
+
+              AWS:
+
+                - !Join ["",["arn:aws:iam::",!Ref "AWS::AccountId",":root"],]
+
+            Action: 'kms:*'
+
+            Resource: '*'
